@@ -73,6 +73,7 @@ async function EventDetailContent({ params }: PageProps) {
         {/* ডান পাশে: টিকিট বাছাইয়ের Client Component */}
         <div className="lg:sticky lg:top-8 lg:self-start">
           <BookingBox
+            slug={event.slug}
             priceMinor={event.priceMinor}
             currency={event.currency}
             availableSeats={event.availableSeats}
