@@ -1,24 +1,26 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { formatPrice } from '@/lib/format';
 
 type BookingBoxProps = {
+  slug: string;
   priceMinor: number;
   currency: string;
   availableSeats: number;
 };
 
 export function BookingBox({
+  slug,
   priceMinor,
   currency,
   availableSeats,
 }: BookingBoxProps) {
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const isSoldOut = availableSeats === 0;
-  // প্রতি অর্ডারে সর্বোচ্চ ৫টি, তবে খালি সিট ৫টির কম হলে সেটাই সর্বোচ্চ সীমা
   const maxAllowed = Math.min(5, availableSeats);
 
   return (
@@ -52,10 +54,7 @@ export function BookingBox({
           <div className="mt-2 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => {
-                setNotice(null);
-                setQuantity((q) => Math.max(1, q - 1));
-              }}
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               disabled={quantity <= 1}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-300 font-bold hover:bg-neutral-100 disabled:opacity-40"
             >
@@ -66,10 +65,7 @@ export function BookingBox({
             </span>
             <button
               type="button"
-              onClick={() => {
-                setNotice(null);
-                setQuantity((q) => Math.min(maxAllowed, q + 1));
-              }}
+              onClick={() => setQuantity((q) => Math.min(maxAllowed, q + 1))}
               disabled={quantity >= maxAllowed}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-300 font-bold hover:bg-neutral-100 disabled:opacity-40"
             >
@@ -83,22 +79,16 @@ export function BookingBox({
         type="button"
         disabled={isSoldOut}
         onClick={() =>
-          setNotice(
-            `${quantity}টি টিকিট (${formatPrice(priceMinor * quantity, currency)}) বাছাই করা হয়েছে। চেকআউট যুক্ত হবে পরের স্প্রিন্টে!`,
+          router.push(
+            `/checkout?event=${encodeURIComponent(slug)}&qty=${quantity}`,
           )
         }
         className="mt-6 w-full rounded-lg bg-neutral-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600"
       >
         {isSoldOut
           ? 'Sold Out'
-          : `Continue • ${formatPrice(priceMinor * quantity, currency)}`}
+          : `Continue to Checkout • ${formatPrice(priceMinor * quantity, currency)}`}
       </button>
-
-      {notice && (
-        <p className="mt-3 rounded-lg bg-neutral-100 p-3 text-xs text-neutral-700">
-          {notice}
-        </p>
-      )}
     </div>
   );
 }
