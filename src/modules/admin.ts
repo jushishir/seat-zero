@@ -31,6 +31,7 @@ export const CreateEventSchema = z.object({
     .min(1, 'কমপক্ষে ১টি সিট থাকতে হবে')
     .max(5000),
   status: z.enum(['draft', 'published']).default('published'),
+  coverImageUrl: z.string().trim().optional().or(z.literal('')),
 });
 
 type Actor = { id: string; email: string };
@@ -65,6 +66,7 @@ export async function createAdminEvent(rawInput: unknown, actor: Actor) {
           priceMinor: data.priceBdt * 100,
           currency: 'BDT',
           status: data.status,
+          coverImageUrl: data.coverImageUrl || null,
         })
         .returning({ id: events.id, slug: events.slug });
 

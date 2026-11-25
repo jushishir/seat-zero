@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import { revalidateTag } from 'next/cache';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendTicketEmail } from '@/adapters/email';
 import { processPaymentWebhook, signWebhookPayload } from '@/modules/payments';
 
 const SimulateSchema = z.object({
@@ -24,7 +25,6 @@ export async function POST(req: Request) {
 
   const { orderId, outcome } = parsed.data;
 
-  // ১. সার্ভারের ভেতরে থেকেই আসল Webhook-এর মতো JSON ও HMAC সিগনেচার তৈরি
   const webhookBody = JSON.stringify({
     eventId: `mock_${crypto.randomUUID()}`,
     type: outcome === 'succeeded' ? 'payment.succeeded' : 'payment.failed',
@@ -34,7 +34,6 @@ export async function POST(req: Request) {
   const signature = signWebhookPayload(webhookBody);
 
   try {
-    // ২. আমাদের আসল Webhook প্রসেসর দিয়েই যাচাই ও টিকিট তৈরি
     const result = await processPaymentWebhook(webhookBody, signature, 'mock');
 
     for (const slug of result.slugs) {
@@ -42,6 +41,13 @@ export async function POST(req: Request) {
     }
     if (result.slugs.length > 0) {
       revalidateTag('events', 'max');
+    }
+
+    if (result.emailPayload) {
+      const emailData = result.emailPayload;
+      after(async () => {
+        await sendTicketEmail(emailData);
+      });
     }
 
     return NextResponse.json(
