@@ -43,6 +43,13 @@
       "when": 1795594357047,
       "tag": "0005_previous_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795597446406,
+      "tag": "0006_familiar_xorn",
+      "breakpoints": true
     }
   ]
 }

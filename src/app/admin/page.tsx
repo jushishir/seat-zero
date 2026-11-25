@@ -1,46 +1,92 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { SignOutButton } from '@/components/sign-out-button';
+import { toggleEventStatusAction } from '@/app/admin/actions';
+import { AdminCreateEventForm } from '@/components/admin-create-event-form';
+import { AdminNav } from '@/components/admin-nav';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { requireAdminSession } from '@/lib/auth-service';
+import { formatEventDate, formatPrice } from '@/lib/format';
+import { getAdminOverviewData } from '@/modules/admin';
 
-async function AdminShell() {
+async function AdminEventsContent() {
   const session = await requireAdminSession();
+  const allEvents = await getAdminOverviewData();
 
   return (
-    <div className="mx-auto max-w-4xl rounded-xl border border-neutral-200 bg-white p-8">
-      <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold">SeatZero Admin</h1>
-          <p className="text-sm text-neutral-600">
-            Signed in as {session.user.email} (MFA Verified ✓)
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-sm text-neutral-600 hover:text-neutral-900"
-          >
-            Storefront
-          </Link>
-          <SignOutButton />
-        </div>
-      </div>
-      <p className="mt-6 text-sm text-neutral-700">
-        আপনার Admin সেশন ও 2FA সুরক্ষা ১০০% সক্রিয়! পরের পাঠে (পাঠ ১৫) এখানে
-        ইভেন্ট, বুকিং, চেক-ইন এবং অডিট লগ ড্যাশবোর্ড যুক্ত হবে।
-      </p>
+    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <AdminNav email={session.user.email} />
+
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
+        <AdminCreateEventForm />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>All Events ({allEvents.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-neutral-100">
+            {allEvents.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex flex-col justify-between gap-4 py-4 sm:flex-row sm:items-center"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/events/${ev.slug}`}
+                      className="font-semibold hover:underline"
+                    >
+                      {ev.title}
+                    </Link>
+                    <Badge
+                      variant={
+                        ev.status === 'published' ? 'default' : 'secondary'
+                      }
+                    >
+                      {ev.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {formatEventDate(ev.eventStartsAt)} • {ev.venueLabel} •{' '}
+                    {formatPrice(ev.priceMinor, ev.currency)}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-neutral-700">
+                    Available: {ev.availableSeats} / {ev.totalCapacity} (Sold:{' '}
+                    {ev.soldSeats})
+                  </p>
+                </div>
+
+                <form
+                  action={async () => {
+                    'use server';
+                    await toggleEventStatusAction(
+                      ev.id,
+                      ev.status === 'published' ? 'archived' : 'published',
+                    );
+                  }}
+                >
+                  <Button type="submit" variant="outline" size="sm">
+                    {ev.status === 'published' ? 'Archive' : 'Publish'}
+                  </Button>
+                </form>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </main>
     </div>
   );
 }
 
 export default function AdminPage() {
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900">
-      <Suspense
-        fallback={<div className="text-center text-sm">Checking access...</div>}
-      >
-        <AdminShell />
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div className="p-10 text-center text-sm">Loading admin...</div>
+      }
+    >
+      <AdminEventsContent />
+    </Suspense>
   );
 }
