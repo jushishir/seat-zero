@@ -29,6 +29,13 @@
       "when": 1795512228995,
       "tag": "0003_previous_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795592880832,
+      "tag": "0004_add-pg-trgm",
+      "breakpoints": true
     }
   ]
 }

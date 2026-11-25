@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatEventDate, formatPrice } from '@/lib/format';
 import { getPublishedEvents } from '@/modules/catalog';
+import { SearchBar } from '@/components/search-bar';
 
 function SeatBadge({ availableSeats }: { availableSeats: number }) {
   if (availableSeats === 0) {
@@ -37,6 +38,7 @@ export default async function HomePage() {
           <Link href="/" className="text-xl font-bold tracking-tight">
             SeatZero
           </Link>
+          <SearchBar />
           <span className="text-sm text-neutral-500">Workshop Box Office</span>
         </div>
       </header>
