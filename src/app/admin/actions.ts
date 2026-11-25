@@ -22,6 +22,7 @@ export async function createEventAction(formData: FormData) {
       priceBdt: formData.get('priceBdt'),
       totalCapacity: formData.get('totalCapacity'),
       status: formData.get('status') ?? 'published',
+      coverImageUrl: formData.get('coverImageUrl'),
     },
     { id: session.user.id, email: session.user.email },
   );

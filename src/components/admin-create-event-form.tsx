@@ -12,6 +12,39 @@ export function AdminCreateEventForm() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setErrorMsg(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error ?? 'ছবি আপলোড হয়নি।');
+        return;
+      }
+
+      setCoverImageUrl(data.url);
+    } catch {
+      setErrorMsg('ছবি আপলোডে নেটওয়ার্ক সমস্যা হয়েছে।');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
@@ -29,6 +62,7 @@ export function AdminCreateEventForm() {
     }
 
     form.reset();
+    setCoverImageUrl('');
     setSuccessMsg(`নতুন ইভেন্ট তৈরি হয়েছে! (/events/${res.slug})`);
   }
 
@@ -107,6 +141,29 @@ export function AdminCreateEventForm() {
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="bannerFile">
+              Event Banner Image (Optional, Max 4MB)
+            </Label>
+            <Input
+              id="bannerFile"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+            <input type="hidden" name="coverImageUrl" value={coverImageUrl} />
+            {uploading && (
+              <p className="text-xs text-neutral-500">
+                Optimizing & uploading WebP...
+              </p>
+            )}
+            {coverImageUrl && (
+              <p className="text-xs text-emerald-700">
+                ✓ Image uploaded & ready!
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="description">Description *</Label>
             <textarea
               id="description"
@@ -130,7 +187,7 @@ export function AdminCreateEventForm() {
           )}
 
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || uploading}>
               {pending ? 'Creating...' : 'Publish Event'}
             </Button>
           </div>

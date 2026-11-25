@@ -46,8 +46,17 @@ async function SearchResults({ searchParams }: SearchPageProps) {
               href={`/events/${event.slug}`}
               className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:border-neutral-400"
             >
-              <div className="flex aspect-video items-center justify-center bg-neutral-100 text-sm font-medium text-neutral-400">
-                {event.coverImageUrl ? 'Cover Ready' : 'Workshop Banner'}
+              <div className="flex aspect-video items-center justify-center overflow-hidden bg-neutral-100 text-sm font-medium text-neutral-400">
+                {event.coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={event.coverImageUrl}
+                    alt={event.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  'Workshop Banner'
+                )}
               </div>
               <div className="flex flex-1 flex-col justify-between p-5">
                 <div>

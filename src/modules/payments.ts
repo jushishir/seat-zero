@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import type { TicketEmailPayload } from '@/adapters/email';
 import { db } from '@/db';
 import {
   events,
@@ -25,7 +26,6 @@ function getWebhookSecret(): string {
   return secret;
 }
 
-// ১. HMAC-SHA256 দিয়ে সিগনেচার তৈরি (Mock গেটওয়ে ব্যবহার করবে)
 export function signWebhookPayload(rawBody: string): string {
   return crypto
     .createHmac('sha256', getWebhookSecret())
@@ -33,7 +33,6 @@ export function signWebhookPayload(rawBody: string): string {
     .digest('hex');
 }
 
-// ২. নিরাপদভাবে সিগনেচার যাচাই (Timing Attack সুরক্ষাসহ)
 export function verifyWebhookSignature(
   rawBody: string,
   receivedSignature: string | null,
@@ -51,7 +50,6 @@ export function verifyWebhookSignature(
   return crypto.timingSafeEqual(expectedBuf, receivedBuf);
 }
 
-// ৩. প্রতি আসনের জন্য ইউনিক টিকিট কোড তৈরি: যেমন "SZ-4A9F-1B2C"
 function generatePassCode(): string {
   const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
   const part2 = crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -62,8 +60,12 @@ export async function processPaymentWebhook(
   rawBody: string,
   signature: string | null,
   provider = 'mock',
-): Promise<{ status: number; body: Record<string, unknown>; slugs: string[] }> {
-  // ক. সিগনেচার ভুল হলে সাথে সাথে 401 দিয়ে ফেরত পাঠানো
+): Promise<{
+  status: number;
+  body: Record<string, unknown>;
+  slugs: string[];
+  emailPayload?: TicketEmailPayload;
+}> {
   if (!verifyWebhookSignature(rawBody, signature)) {
     return {
       status: 401,
@@ -90,7 +92,6 @@ export async function processPaymentWebhook(
 
   const { eventId, type, orderId } = parsed.data;
 
-  // খ. ইভেন্ট Deduplication: আগে প্রসেস হয়ে থাকলে ডুপ্লিকেট হিসেবে এড়িয়ে যাবে
   const [insertedWebhook] = await db
     .insert(webhookEvents)
     .values({
@@ -113,6 +114,7 @@ export async function processPaymentWebhook(
   }
 
   const touchedSlugs: string[] = [];
+  let emailPayload: TicketEmailPayload | undefined;
 
   try {
     await db.transaction(async (tx) => {
@@ -126,7 +128,6 @@ export async function processPaymentWebhook(
         throw new Error(`Order not found: ${orderId}`);
       }
 
-      // আগেই পেমেন্ট কনফার্ম হয়ে থাকলে আর কিছু করার দরকার নেই
       if (order.status === 'paid') {
         return;
       }
@@ -135,6 +136,7 @@ export async function processPaymentWebhook(
         .select({
           eventId: orderItems.eventId,
           quantity: orderItems.quantity,
+          eventTitle: orderItems.eventTitleSnapshot,
           slug: events.slug,
         })
         .from(orderItems)
@@ -145,7 +147,6 @@ export async function processPaymentWebhook(
         touchedSlugs.push(item.slug);
       }
 
-      // যদি পেমেন্ট ব্যর্থ হয় এবং অর্ডার এখনো pending থাকে -> সিট ছেড়ে দেওয়া
       if (type === 'payment.failed') {
         if (order.status === 'pending') {
           for (const item of items) {
@@ -166,9 +167,9 @@ export async function processPaymentWebhook(
         return;
       }
 
-      // যদি পেমেন্ট সফল হয়:
+      const allPassCodes: string[] = [];
+
       if (order.status === 'pending') {
-        // স্বাভাবিক পথ: reserved সিটগুলো sold-এ রূপান্তর + টিকিট পাস তৈরি
         for (const item of items) {
           await tx
             .update(seatInventory)
@@ -186,7 +187,12 @@ export async function processPaymentWebhook(
             attendeeEmail: order.buyerEmail,
             status: 'active',
           }));
-          await tx.insert(ticketPasses).values(passes);
+
+          const insertedPasses = await tx
+            .insert(ticketPasses)
+            .values(passes)
+            .returning({ passCode: ticketPasses.passCode });
+          allPassCodes.push(...insertedPasses.map((p) => p.passCode));
         }
 
         await tx
@@ -194,7 +200,6 @@ export async function processPaymentWebhook(
           .set({ status: 'paid', paidAt: new Date() })
           .where(eq(orders.id, order.id));
       } else if (order.status === 'expired') {
-        // Race Condition সুরক্ষা: অর্ডার expire হয়ে যাওয়ার পর দেরিতে পেমেন্ট এলে
         let allRecovered = true;
 
         for (const item of items) {
@@ -220,7 +225,6 @@ export async function processPaymentWebhook(
         }
 
         if (!allRecovered) {
-          // অন্য কেউ সিট কিনে ফেললে ওভারসেল না করে refund_required মার্ক করা
           await tx
             .update(orders)
             .set({ status: 'refund_required' })
@@ -236,13 +240,28 @@ export async function processPaymentWebhook(
             attendeeEmail: order.buyerEmail,
             status: 'active',
           }));
-          await tx.insert(ticketPasses).values(passes);
+
+          const insertedPasses = await tx
+            .insert(ticketPasses)
+            .values(passes)
+            .returning({ passCode: ticketPasses.passCode });
+          allPassCodes.push(...insertedPasses.map((p) => p.passCode));
         }
 
         await tx
           .update(orders)
           .set({ status: 'paid', paidAt: new Date() })
           .where(eq(orders.id, order.id));
+      }
+
+      if (allPassCodes.length > 0) {
+        emailPayload = {
+          to: order.buyerEmail,
+          buyerName: order.buyerName,
+          orderNumber: order.orderNumber,
+          eventTitle: items[0]?.eventTitle ?? 'SeatZero Workshop',
+          passCodes: allPassCodes,
+        };
       }
     });
 
@@ -251,7 +270,12 @@ export async function processPaymentWebhook(
       .set({ status: 'processed', processedAt: new Date() })
       .where(eq(webhookEvents.id, insertedWebhook.id));
 
-    return { status: 200, body: { received: true }, slugs: touchedSlugs };
+    return {
+      status: 200,
+      body: { received: true },
+      slugs: touchedSlugs,
+      emailPayload,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     await db

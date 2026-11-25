@@ -38,8 +38,17 @@ async function EventDetailContent({ params }: PageProps) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
-      <div className="mb-6 aspect-[21/9] w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 flex items-center justify-center text-neutral-400 font-medium">
-        {event.coverImageUrl ? 'Event Cover Ready' : 'Event Cover Banner'}
+      <div className="mb-6 flex aspect-[21/9] w-full items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 font-medium text-neutral-400">
+        {event.coverImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={event.coverImageUrl}
+            alt={event.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          'Event Cover Banner'
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
