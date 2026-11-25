@@ -36,6 +36,13 @@
       "when": 1795592880832,
       "tag": "0004_add-pg-trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795594357047,
+      "tag": "0005_previous_anthem",
+      "breakpoints": true
     }
   ]
 }
