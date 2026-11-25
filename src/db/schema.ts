@@ -179,4 +179,22 @@ export const webhookEvents = pgTable(
   ],
 );
 
+// ৮. অডিট লগ (অ্যাডমিনের প্রতিটি গুরুত্বপূর্ণ কাজের স্থায়ী রেকর্ড)
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorUserId: text('actor_user_id').notNull(),
+    actorEmail: text('actor_email').notNull(),
+    action: text('action').notNull(), // যেমন: event.created, order.cancelled, pass.checked_in
+    targetType: text('target_type').notNull(), // event | order | ticket_pass
+    targetId: text('target_id').notNull(),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('audit_created_at_idx').on(table.createdAt)],
+);
+
 export * from './auth-schema';
