@@ -39,6 +39,7 @@ export default async function HomePage() {
             SeatZero
           </Link>
           <SearchBar />
+          <Link href="/my-tickets">My Tickets</Link>
           <span className="text-sm text-neutral-500">Workshop Box Office</span>
         </div>
       </header>

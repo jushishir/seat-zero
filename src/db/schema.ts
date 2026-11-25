@@ -178,3 +178,5 @@ export const webhookEvents = pgTable(
     ),
   ],
 );
+
+export * from './auth-schema';
