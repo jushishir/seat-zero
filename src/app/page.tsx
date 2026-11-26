@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { formatEventDate, formatPrice } from '@/lib/format';
 import { getPublishedEvents } from '@/modules/catalog';
 import { SearchBar } from '@/components/search-bar';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 function SeatBadge({ availableSeats }: { availableSeats: number }) {
   if (availableSeats === 0) {
